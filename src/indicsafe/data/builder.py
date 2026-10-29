@@ -14,9 +14,9 @@ from indicsafe.data.splits import FreezeLock
 from indicsafe.data.validate import validate_items
 from indicsafe.languages import LANGUAGES
 from indicsafe.schema import SCHEMA_VERSION, Item, Sample
+from indicsafe.variants import REGISTRY, UnsupportedLanguage, make_rng, protected_spans
 
-# M2 replaces VARIANTS with the real registry; M3 adds the prompt text for CONDITIONS.
-VARIANTS = ("identity",)
+# M3 adds the prompt text for CONDITIONS.
 CONDITIONS = ("none", "generic_assistant", "india_persona")
 
 
@@ -30,14 +30,16 @@ def build_samples(
     lock: FreezeLock,
     variants: Sequence[str] = ("identity",),
     conditions: Sequence[str] = ("none",),
+    seed: int = 0,
+    skip_unsupported: bool = False,
 ) -> list[Sample]:
     validate_items(items)
     for lang in languages:
         if lang not in LANGUAGES:
             raise BuildError(f"unknown language {lang!r}; known: {sorted(LANGUAGES)}")
     for v in variants:
-        if v not in VARIANTS:
-            raise BuildError(f"unknown variant {v!r}; known: {list(VARIANTS)}")
+        if v not in REGISTRY:
+            raise BuildError(f"unknown variant {v!r}; known: {sorted(REGISTRY)}")
     for c in conditions:
         if c not in CONDITIONS:
             raise BuildError(f"unknown condition {c!r}; known: {list(CONDITIONS)}")
@@ -53,6 +55,21 @@ def build_samples(
                 missing.append(f"{item.item_id}: no {lang} translation")
                 continue
             for v in variants:
+                variant = REGISTRY[v]
+                rng = make_rng(seed, item.item_id, lang, v)
+                try:
+                    text, info = variant.apply_with_info(t.text, lang, rng)
+                except UnsupportedLanguage as e:
+                    if skip_unsupported:
+                        continue
+                    raise BuildError(f"{item.item_id}: {e}") from e
+                lost = [p for p in protected_spans(t.text) if p not in text]
+                if lost or not text.strip():
+                    raise BuildError(
+                        f"{item.item_id}/{lang}/{v}: variant corrupted protected spans {lost}"
+                        if lost
+                        else f"{item.item_id}/{lang}/{v}: variant produced empty text"
+                    )
                 for c in conditions:
                     samples.append(
                         Sample(
@@ -66,8 +83,11 @@ def build_samples(
                             language=lang,
                             script=t.script,
                             variant=v,
+                            variant_version=variant.version,
+                            variant_info=info,
                             condition=c,
-                            text=t.text,
+                            text=text,
+                            source_text=t.text,
                             english_reference=english,
                             provenance=t.provenance,
                             review_status=t.review_status,
@@ -122,7 +142,7 @@ def compute_stats(items: list[Item], lock: FreezeLock) -> dict[str, Any]:
 
 
 def make_manifest(
-    items: list[Item], samples: list[Sample], lock: FreezeLock, repo: Path
+    items: list[Item], samples: list[Sample], lock: FreezeLock, repo: Path, seed: int = 0
 ) -> dict[str, Any]:
     sha, dirty = git_state(repo)
     return {
@@ -130,6 +150,8 @@ def make_manifest(
         "dataset_hash": dataset_hash(items),
         "samples_hash": sha256_hex(canonical_json([s.model_dump(mode="json") for s in samples])),
         "n_samples": len(samples),
+        "seed": seed,
+        "variants": {v: REGISTRY[v].version for v in sorted({s.variant for s in samples})},
         "git_sha": sha,
         "git_dirty": dirty,
         **compute_stats(items, lock),

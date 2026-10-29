@@ -19,6 +19,7 @@ from indicsafe.data.loaders import LoadError, load_items
 from indicsafe.data.splits import FreezeLock
 from indicsafe.data.validate import DatasetInvalid, check_items
 from indicsafe.schema import Item
+from indicsafe.variants import get_variant, variant_names
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 data_app = typer.Typer(no_args_is_help=True, help="Dataset commands.")
@@ -58,6 +59,11 @@ def build(
     items: ItemsDir = Path("data/items"),
     out: Annotated[Path, typer.Option(help="Output directory.")] = Path("data/built"),
     lock: LockPath = Path("data/test_freeze.json"),
+    variants: Annotated[str, typer.Option(help="Comma-separated variant names.")] = "identity",
+    seed: Annotated[int, typer.Option(help="Seed for variant randomness.")] = 0,
+    skip_unsupported: Annotated[
+        bool, typer.Option(help="Skip (variant, language) pairs a variant does not support.")
+    ] = False,
 ) -> None:
     """Expand items into samples and write samples.jsonl + manifest.json."""
     loaded = _load(items)
@@ -66,14 +72,29 @@ def build(
     if problems:
         raise _fail("\n".join(problems))
     try:
-        samples = build_samples(loaded, [x.strip() for x in languages.split(",")], flock)
+        samples = build_samples(
+            loaded,
+            [x.strip() for x in languages.split(",")],
+            flock,
+            variants=[x.strip() for x in variants.split(",")],
+            seed=seed,
+            skip_unsupported=skip_unsupported,
+        )
     except (BuildError, DatasetInvalid) as e:
         raise _fail(str(e)) from e
-    manifest = make_manifest(loaded, samples, flock, Path.cwd())
+    manifest = make_manifest(loaded, samples, flock, Path.cwd(), seed)
     write_built(samples, manifest, out)
     typer.echo(
         f"wrote {len(samples)} samples to {out} (dataset_hash {manifest['dataset_hash'][:12]})"
     )
+
+
+@app.command("variants")
+def list_variants() -> None:
+    """List registered prompt variants."""
+    for name in variant_names():
+        v = get_variant(name)
+        typer.echo(f"{name}  v{v.version}  [{', '.join(sorted(v.languages))}]  {v.description}")
 
 
 @data_app.command("stats")
