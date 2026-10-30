@@ -17,7 +17,7 @@ from indicsafe.compute import (
     recommend,
     save_bench,
 )
-from indicsafe.config import load_config
+from indicsafe.config import load_config, provider_of
 from indicsafe.data.builder import (
     BuildError,
     build_samples,
@@ -163,6 +163,17 @@ def doctor() -> None:
         typer.echo("RAM could not be detected on this OS: tell me your RAM/GPU and I'll size runs.")
     if not hw.ollama_running:
         typer.echo("Ollama is not running here; local runs need it (or HF/vLLM).")
+
+
+@app.command("models")
+def list_models(config: ConfigOpt) -> None:
+    """Print the Ollama tags a config needs, one per line (used by the bootstrap script)."""
+    cfg = load_config(config)
+    for m in cfg.models:
+        if provider_of(m) == "ollama":
+            typer.echo(m.split("/", 1)[1])
+        else:
+            typer.echo(f"note: {m} is not an Ollama model; nothing to pull", err=True)
 
 
 @app.command("bench")

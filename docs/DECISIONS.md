@@ -67,3 +67,16 @@
   mockllm's tokenizer download.
 - Not yet done: `scripts/bootstrap_free_gpu.sh` and the Colab/Kaggle notebook (M3b), the
   first real local run (needs your hardware or Kaggle), response-language detection (M4).
+
+## M3b
+- `scripts/bootstrap_free_gpu.sh` + `notebooks/indicsafe_free_gpu.ipynb`: install deps, install and
+  start Ollama, pull the tags named by `indicsafe models --config`, bench, run, zip. `DRY_RUN=1` prints
+  the plan. Tested here end to end with scripted models (`SKIP_SYNC=1 SKIP_OLLAMA=1`), including a
+  re-run that repeats no work. **Not tested:** the Ollama install, `ollama serve` and `ollama pull`
+  steps, or anything on real Kaggle/Colab (no network or GPU in the build sandbox). Expect to adjust.
+- Ollama is installed with its official `curl | sh` installer; the script also installs `zstd`
+  with apt if missing (the installer needs it on some versions; unverified).
+- Colab sessions lose local disk when they die: set `OUT` to a Drive folder to resume across sessions.
+  Kaggle keeps `/kaggle/working` as notebook output.
+- Responses can contain harmful-compliance text; the notebook warns to keep outputs private.
+  Redacted public exports are planned for M6 (`report`).
