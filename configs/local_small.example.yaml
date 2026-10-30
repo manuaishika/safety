@@ -1,0 +1,17 @@
+# Real local run. Model ids below are UNVERIFIED guesses: check `ollama list` / `ollama pull`
+# (or the HF hub) and edit before use. Run `indicsafe doctor` first to see what fits.
+name: local_small
+models:
+  - ollama/qwen2.5:1.5b-instruct   # 1-2B tier: runs on low-end hardware
+  # - ollama/llama3.2:3b-instruct  # 3-4B tier
+  # - ollama/gemma2:2b-instruct
+  # - ollama/aya-expanse:8b        # multilingual, 7-9B tier
+languages: [en, hi, hi-Latn]
+variants: [identity]
+conditions: [none]
+split: dev
+seed: 0
+generation:
+  temperature: 0.0
+  max_tokens: 400
+  max_connections: 1   # local models: one request at a time
