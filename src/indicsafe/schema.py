@@ -72,8 +72,11 @@ class Sample(_Strict):
     language: str
     script: ScriptKind
     variant: str
+    variant_version: str
+    variant_info: dict[str, object]
     condition: str
     text: str
+    source_text: str
     english_reference: str
     provenance: str
     review_status: ReviewStatus

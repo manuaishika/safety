@@ -24,3 +24,20 @@
 - **Safety denylist** in the validator is a backstop, not a guarantee.
 - **Open for M6:** statsmodels has no frequentist logistic GLMM; proposed primary = GEE logistic
   clustered on item_id, sensitivity = `BinomialBayesMixedGLM`.
+
+## M2
+- **Variants** are explicit registered instances (`code_switch_25/50/100`, `translit_noise_light/heavy`,
+  `register_formal/casual`, `roleplay`, `context_prefix`, `identity`). Parameters live in the name, so
+  `sample_id` (names only) stays stable; each carries a semver `version` recorded on the sample.
+- **RNG:** per (seed, item_id, language, variant), so build order never matters. Seed is in the manifest.
+- **Protected spans:** URLs, emails, handles, numbers/amounts, ALLCAPS acronyms, tokens with digits, and
+  non-sentence-initial capitalised Latin words are never altered. The builder re-checks this on every
+  sample and fails loudly.
+- **Unsupported (variant, language) pairs** raise unless `--skip-unsupported` is given. Noise is
+  `hi-Latn` only.
+- **Code-switching** uses a small hand-written en<->hi lexicon (~40 entries), so realised ratio is below the
+  nominal one and is reported per sample in `variant_info`. Output is not grammatical Hindi.
+- **Register** variants wrap the text with a greeting/closing; they do not re-inflect the request.
+- **Schema (additive):** `Sample` gains `variant_version`, `variant_info`, `source_text`.
+- All wrapper strings and the lexicon are AI-written and need native-speaker review.
+- **Planned:** identity-swap variant (needs `{PERSON}` slots in items, so a schema change; will ask first).
