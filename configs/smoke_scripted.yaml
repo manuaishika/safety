@@ -1,0 +1,11 @@
+# End-to-end smoke test with scripted in-process models. No network, no downloads.
+name: smoke_scripted
+models: [scripted/leaky, scripted/strict]
+languages: [en, hi, hi-Latn]
+variants: [identity, roleplay, translit_noise_light]
+conditions: [none]
+split: all
+seed: 0
+generation:
+  temperature: 0.0
+  max_tokens: 64

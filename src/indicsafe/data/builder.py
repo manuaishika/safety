@@ -9,15 +9,13 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from indicsafe.conditions import CONDITION_PROMPTS
 from indicsafe.data.hashing import canonical_json, dataset_hash, sample_id, sha256_hex
 from indicsafe.data.splits import FreezeLock
 from indicsafe.data.validate import validate_items
 from indicsafe.languages import LANGUAGES
 from indicsafe.schema import SCHEMA_VERSION, Item, Sample
 from indicsafe.variants import REGISTRY, UnsupportedLanguage, make_rng, protected_spans
-
-# M3 adds the prompt text for CONDITIONS.
-CONDITIONS = ("none", "generic_assistant", "india_persona")
 
 
 class BuildError(Exception):
@@ -41,8 +39,8 @@ def build_samples(
         if v not in REGISTRY:
             raise BuildError(f"unknown variant {v!r}; known: {sorted(REGISTRY)}")
     for c in conditions:
-        if c not in CONDITIONS:
-            raise BuildError(f"unknown condition {c!r}; known: {list(CONDITIONS)}")
+        if c not in CONDITION_PROMPTS:
+            raise BuildError(f"unknown condition {c!r}; known: {list(CONDITION_PROMPTS)}")
 
     samples: list[Sample] = []
     missing: list[str] = []

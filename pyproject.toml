@@ -5,6 +5,7 @@ description = "Multilingual safety-behaviour evaluation infrastructure for India
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "inspect-ai>=0.3.286",
     "pydantic>=2.6",
     "pyyaml>=6.0",
     "typer>=0.12",
@@ -12,6 +13,11 @@ dependencies = [
 
 [project.scripts]
 indicsafe = "indicsafe.cli:app"
+
+[project.optional-dependencies]
+local = [
+    "openai>=3.41.0",
+]
 
 [dependency-groups]
 dev = [
@@ -45,3 +51,4 @@ plugins = ["pydantic.mypy"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["local_model: needs a local Ollama model; skipped unless Ollama is detected"]
+filterwarnings = ["ignore:The .initial. parameter is deprecated:DeprecationWarning"]

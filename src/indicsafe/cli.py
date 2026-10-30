@@ -2,12 +2,22 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
+from indicsafe.compute import (
+    PlanError,
+    bench_model,
+    detect_hardware,
+    load_bench,
+    recommend,
+    save_bench,
+)
+from indicsafe.config import load_config
 from indicsafe.data.builder import (
     BuildError,
     build_samples,
@@ -18,12 +28,16 @@ from indicsafe.data.builder import (
 from indicsafe.data.loaders import LoadError, load_items
 from indicsafe.data.splits import FreezeLock
 from indicsafe.data.validate import DatasetInvalid, check_items
+from indicsafe.runner import bench_prompts, describe, execute, prepare_run
 from indicsafe.schema import Item
 from indicsafe.variants import get_variant, variant_names
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 data_app = typer.Typer(no_args_is_help=True, help="Dataset commands.")
 app.add_typer(data_app, name="data")
+
+ConfigOpt = Annotated[Path, typer.Option("--config", help="Run config YAML.")]
+BenchPath = Annotated[Path, typer.Option("--bench-file", help="Bench results JSON.")]
 
 ItemsDir = Annotated[Path, typer.Option("--items", help="Directory of item YAML files.")]
 LockPath = Annotated[Path, typer.Option("--lock", help="Frozen-test lock file.")]
@@ -135,6 +149,72 @@ def unfreeze(
     except (RuntimeError, ValueError) as e:
         raise _fail(str(e)) from e
     typer.echo("lock re-baselined and logged")
+
+
+@app.command("doctor")
+def doctor() -> None:
+    """Detect RAM / VRAM / CPU / Ollama / disk and recommend model sizes that fit."""
+    hw = detect_hardware()
+    typer.echo(json.dumps(hw.model_dump(), indent=2))
+    typer.echo("\nModel sizes (4-bit):")
+    for r in recommend(hw.ram_total_gb, hw.vram_gb, hw.disk_free_gb):
+        typer.echo(f"  {'OK ' if r.fits else 'no '} {r.tier:7s} {r.note}")
+    if hw.ram_total_gb is None:
+        typer.echo("RAM could not be detected on this OS: tell me your RAM/GPU and I'll size runs.")
+    if not hw.ollama_running:
+        typer.echo("Ollama is not running here; local runs need it (or HF/vLLM).")
+
+
+@app.command("bench")
+def bench(
+    config: ConfigOpt,
+    n: Annotated[int, typer.Option(help="Prompts to time per model.")] = 12,
+    bench_file: BenchPath = Path("results/bench.json"),
+    items: ItemsDir = Path("data/items"),
+    lock: LockPath = Path("data/test_freeze.json"),
+) -> None:
+    """Measure seconds/sample and tokens/sec for each configured model on this machine."""
+    cfg = load_config(config)
+    prompts = bench_prompts(cfg, items, lock, n)
+    results = load_bench(bench_file)
+    for m in cfg.models:
+        typer.echo(f"benchmarking {m} on {len(prompts)} prompts ...")
+        r = asyncio.run(bench_model(m, prompts, cfg.generation.max_tokens))
+        results[m] = r
+        rate = f"{r.seconds_per_sample:.2f} s/sample, {r.tokens_per_sec:.1f} tok/s"
+        typer.echo(f"  {rate} ({r.token_count_source})")
+    save_bench(bench_file, results)
+    typer.echo(f"saved {bench_file}")
+
+
+@app.command("run")
+def run(
+    config: ConfigOpt,
+    dry_run: Annotated[bool, typer.Option(help="Count samples/time; make no model calls.")] = False,
+    max_hours: Annotated[
+        float | None, typer.Option(help="Keep the largest stratified subset that fits.")
+    ] = None,
+    out: Annotated[Path, typer.Option(help="Root for run folders.")] = Path("results/runs"),
+    bench_file: BenchPath = Path("results/bench.json"),
+    items: ItemsDir = Path("data/items"),
+    lock: LockPath = Path("data/test_freeze.json"),
+) -> None:
+    """Generate model responses. Re-running the same config resumes where it stopped."""
+    cfg = load_config(config)
+    bench_data = load_bench(bench_file)
+    try:
+        prepared = prepare_run(cfg, items, lock, Path.cwd(), bench_data or None, max_hours)
+    except (RuntimeError, PlanError, BuildError, DatasetInvalid) as e:
+        raise _fail(str(e)) from e
+    typer.echo(describe(prepared, bench_data))
+    if dry_run:
+        return
+    ok, out_dir = execute(prepared, out)
+    typer.echo(
+        f"{'finished' if ok else 'INCOMPLETE (re-run the same command to resume)'}: {out_dir}"
+    )
+    if not ok:
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":
