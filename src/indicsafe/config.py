@@ -15,7 +15,7 @@ from indicsafe.schema import Slug
 from indicsafe.variants import variant_names
 
 # Providers that run on the researcher's own hardware (or in-process test doubles).
-LOCAL_PROVIDERS = frozenset({"ollama", "hf", "vllm", "scripted", "mockllm"})
+LOCAL_PROVIDERS = frozenset({"ollama", "hf", "vllm", "scripted", "scriptedgrader", "mockllm"})
 
 
 class Generation(BaseModel):

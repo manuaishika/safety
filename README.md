@@ -15,6 +15,10 @@ Runs entirely on free, local, open-weights models. No API keys.
 Real models: copy `configs/local_small.example.yaml`, fix the model ids, `uv sync --extra local`,
 then `indicsafe bench` and `indicsafe run --max-hours 4`. Re-running a command resumes it.
 
+Grade the stored responses with a local grader pair (different models from the ones being tested):
+
+    uv run indicsafe grade --logs results/runs/<run_id> --grader-config configs/graders/local_pair.example.yaml
+
 No GPU: open `notebooks/indicsafe_free_gpu.ipynb` on Kaggle or Colab (runs `scripts/bootstrap_free_gpu.sh`).
 
 ## Data
@@ -22,4 +26,4 @@ No GPU: open `notebooks/indicsafe_free_gpu.ipynb` on Kaggle or Colab (runs `scri
 Every harmful item has a paired benign control. Hinglish is `hi-Latn`. All translations are
 currently AI-written and unreviewed.
 
-Status: M3b (dataset, variants, generation runs, free-GPU bootstrap). Design notes and decisions: `docs/DECISIONS.md`.
+Status: M4 (dataset, variants, generation runs, free-GPU bootstrap, local grading). Design notes and decisions: `docs/DECISIONS.md`.

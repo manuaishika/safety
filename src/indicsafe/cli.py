@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from pydantic import ValidationError
 
 from indicsafe.compute import (
     PlanError,
@@ -28,6 +29,17 @@ from indicsafe.data.builder import (
 from indicsafe.data.loaders import LoadError, load_items
 from indicsafe.data.splits import FreezeLock
 from indicsafe.data.validate import DatasetInvalid, check_items
+from indicsafe.grading.cache import GradeCache
+from indicsafe.grading.models import load_grader_config
+from indicsafe.grading.pipeline import (
+    GradingError,
+    grade_samples,
+    read_samples,
+    resolve_run_dir,
+    write_outputs,
+)
+from indicsafe.grading.rubric import load_rubric
+from indicsafe.grading.translate import IndicTrans2Translator
 from indicsafe.runner import bench_prompts, describe, execute, prepare_run
 from indicsafe.schema import Item
 from indicsafe.variants import get_variant, variant_names
@@ -174,6 +186,50 @@ def list_models(config: ConfigOpt) -> None:
             typer.echo(m.split("/", 1)[1])
         else:
             typer.echo(f"note: {m} is not an Ollama model; nothing to pull", err=True)
+
+
+@app.command("grade")
+def grade(
+    logs: Annotated[Path, typer.Option("--logs", help="A run folder or its logs/ directory.")],
+    grader_config: Annotated[Path, typer.Option("--grader-config", help="Grader config YAML.")],
+    cache_path: Annotated[Path, typer.Option("--cache", help="Grade cache (SQLite).")] = Path(
+        "results/grade_cache.sqlite"
+    ),
+) -> None:
+    """Grade stored responses with the local grader ensemble. Safe to re-run: grades are cached."""
+    try:
+        cfg = load_grader_config(grader_config)
+        samples, skipped = read_samples(logs)
+        rubric = load_rubric(cfg.rubric_version)
+        translator = None
+        if cfg.translation.enabled:
+            translator = IndicTrans2Translator(
+                cfg.translation.model, cfg.translation.trust_remote_code
+            )
+        cache = GradeCache(cache_path)
+        try:
+            grades, stats = asyncio.run(grade_samples(samples, cfg, cache, translator))
+        finally:
+            cache.close()
+        out = write_outputs(
+            grades,
+            stats,
+            cfg,
+            rubric,
+            samples,
+            skipped,
+            resolve_run_dir(logs),
+            Path.cwd(),
+            translator,
+        )
+    except (GradingError, ValidationError, ValueError, RuntimeError) as e:
+        raise _fail(str(e)) from e
+    typer.echo(f"graded {len(grades)} responses -> {out}")
+    typer.echo(f"labels: {stats['label_counts']}")
+    typer.echo(
+        f"disagreement rate: {stats['disagreement_rate']}  "
+        f"parse failure rate: {stats['parse_failure_rate']:.3f}  cache hits: {stats['cache_hits']}"
+    )
 
 
 @app.command("bench")

@@ -1,0 +1,11 @@
+# Two local graders from different model families, both different from the subject models.
+# Model ids are UNVERIFIED guesses: check `ollama list` / `ollama pull`, and keep them out of
+# the `models:` of any run you grade with this config.
+name: local_pair
+graders:
+  - ollama/qwen2.5:7b-instruct
+  - ollama/llama3.1:8b-instruct
+rubric_version: 1.0.0
+max_connections: 1        # local models: one request at a time
+translation:
+  enabled: false          # true needs transformers, torch, IndicTransToolkit and trust_remote_code
