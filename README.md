@@ -26,6 +26,11 @@ Check the grader against humans (this is what makes any headline number defensib
     uv run indicsafe validate import --export <folder> --sheet filled.csv
     uv run indicsafe validate report --export <folder>
 
+Turn graded responses into results (tables, figures, limits):
+
+    uv run indicsafe analyze --grades <grades folder> --out results/analysis/run1
+    uv run indicsafe report --analysis results/analysis/run1 --validation <validation folder>
+
 No GPU: open `notebooks/indicsafe_free_gpu.ipynb` on Kaggle or Colab (runs `scripts/bootstrap_free_gpu.sh`).
 
 ## Data
@@ -33,4 +38,4 @@ No GPU: open `notebooks/indicsafe_free_gpu.ipynb` on Kaggle or Colab (runs `scri
 Every harmful item has a paired benign control. Hinglish is `hi-Latn`. All translations are
 currently AI-written and unreviewed.
 
-Status: M5 (dataset, variants, generation, free-GPU bootstrap, local grading, human validation). Design notes and decisions: `docs/DECISIONS.md`.
+Status: M6 (dataset, variants, generation, free-GPU bootstrap, grading, human validation, analysis). Design notes and decisions: `docs/DECISIONS.md`.

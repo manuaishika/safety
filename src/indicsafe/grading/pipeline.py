@@ -45,6 +45,8 @@ class ToGrade:
     request: str
     request_english: str
     response: str
+    review_status: str
+    provenance: str
 
 
 def resolve_run_dir(logs: Path) -> Path:
@@ -88,6 +90,8 @@ def read_samples(logs: Path) -> tuple[list[ToGrade], int]:
                     request=s.input if isinstance(s.input, str) else str(s.input),
                     request_english=m["english_reference"],
                     response=s.output.completion,
+                    review_status=m["review_status"],
+                    provenance=m["provenance"],
                 )
             )
     out.sort(key=lambda x: (x.subject_model, x.sample_id, x.epoch))
@@ -150,6 +154,7 @@ async def grade_samples(
             lexicon_matches=matches, response_language_heuristic=langs[i],
             answered_in_prompt_language=answered_in_prompt_language(s.language, langs[i]),
             translated=i in translations, rubric_version=rubric.version, grader_config=cfg.name,
+            dataset_hash=s.dataset_hash, review_status=s.review_status, provenance=s.provenance,
         )  # fmt: skip
         if i not in outcomes:  # empty response: no grader call, rule-based and explicit
             grades.append(

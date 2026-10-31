@@ -10,6 +10,9 @@ from typing import Annotated
 import typer
 from pydantic import ValidationError
 
+from indicsafe.analysis.pipeline import run_analysis
+from indicsafe.analysis.report import build_report as build_analysis_report
+from indicsafe.analysis.tidy import AnalysisError
 from indicsafe.compute import (
     PlanError,
     bench_model,
@@ -264,6 +267,47 @@ def validate_report(
     md = render_markdown(report)
     (export / "report.md").write_text(md, encoding="utf-8")
     typer.echo(md)
+
+
+@app.command("analyze")
+def analyze(
+    grades: Annotated[
+        list[Path], typer.Option("--grades", help="Grades folder(s); repeatable, same grader only.")
+    ],
+    out: Annotated[Path, typer.Option(help="Output folder.")] = Path("results/analysis/latest"),
+    include_unreviewed: Annotated[
+        bool, typer.Option(help="Include AI-drafted, not native-reviewed translations.")
+    ] = False,
+    baseline: Annotated[str, typer.Option(help="Baseline language for gaps.")] = "en",
+    n_boot: Annotated[int, typer.Option(help="Bootstrap resamples.")] = 2000,
+    seed: Annotated[int, typer.Option(help="Seed.")] = 0,
+    interaction: Annotated[bool, typer.Option(help="Add language x category terms.")] = False,
+    bayes: Annotated[bool, typer.Option(help="Also fit the Bayesian mixed model.")] = True,
+) -> None:
+    """Tidy table, rates, gaps, McNemar, regression and figures from graded responses."""
+    try:
+        res = run_analysis(
+            grades, out, include_unreviewed=include_unreviewed, baseline=baseline,
+            n_boot=n_boot, seed=seed, interaction=interaction, bayes=bayes,
+        )  # fmt: skip
+    except (AnalysisError, ValueError) as e:
+        raise _fail(str(e)) from e
+    typer.echo(f"analysed {res.manifest['n_rows_analysed']} responses -> {out}")
+
+
+@app.command("report")
+def report(
+    analysis: Annotated[Path, typer.Option(help="Folder written by `indicsafe analyze`.")],
+    out: Annotated[Path, typer.Option(help="Report folder.")] = Path("results/report"),
+    validation: Annotated[
+        Path | None, typer.Option(help="Validation export folder with report.json.")
+    ] = None,
+) -> None:
+    """Assemble tables, figures, limits and a manifest into one folder."""
+    if not (analysis / "analysis_manifest.json").exists():
+        raise _fail(f"{analysis} has no analysis_manifest.json; run `indicsafe analyze` first")
+    files = build_analysis_report(analysis, out, validation)
+    typer.echo(f"wrote {len(files)} files -> {out}/report.md")
 
 
 @app.command("doctor")
