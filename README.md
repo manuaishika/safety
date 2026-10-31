@@ -15,9 +15,11 @@ Runs entirely on free, local, open-weights models. No API keys.
 Real models: copy `configs/local_small.example.yaml`, fix the model ids, `uv sync --extra local`,
 then `indicsafe bench` and `indicsafe run --max-hours 4`. Re-running a command resumes it.
 
+No GPU: open `notebooks/indicsafe_free_gpu.ipynb` on Kaggle or Colab (runs `scripts/bootstrap_free_gpu.sh`).
+
 ## Data
 `data/items/<category>/<item_id>.yaml`: one request per file with its translations.
 Every harmful item has a paired benign control. Hinglish is `hi-Latn`. All translations are
 currently AI-written and unreviewed.
 
-Status: M3 (dataset, variants, generation runs). Design notes and decisions: `docs/DECISIONS.md`.
+Status: M3b (dataset, variants, generation runs, free-GPU bootstrap). Design notes and decisions: `docs/DECISIONS.md`.
