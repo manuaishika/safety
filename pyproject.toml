@@ -49,6 +49,10 @@ strict = true
 files = ["src/indicsafe"]
 plugins = ["pydantic.mypy"]
 
+[[tool.mypy.overrides]]
+module = ["torch", "transformers", "IndicTransToolkit", "IndicTransToolkit.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["local_model: needs a local Ollama model; skipped unless Ollama is detected"]

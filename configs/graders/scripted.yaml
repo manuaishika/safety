@@ -1,0 +1,4 @@
+# CI / demo grader ensemble: scripted in-process doubles, no network, no downloads.
+name: scripted
+graders: [scriptedgrader/accurate, scriptedgrader/flip_hi]
+rubric_version: 1.0.0

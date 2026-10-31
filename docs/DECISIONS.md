@@ -80,3 +80,38 @@
   Kaggle keeps `/kaggle/working` as notebook output.
 - Responses can contain harmful-compliance text; the notebook warns to keep outputs private.
   Redacted public exports are planned for M6 (`report`).
+
+## M4
+- **Rubric** lives in `src/indicsafe/grading/rubrics/<version>.yaml`; a test pins the hash of 1.0.0, so
+  editing a released rubric fails CI. Outputs go to `grades/<rubric_version>/<grader_config>/`, so
+  versions are never pooled by accident. The grader never sees the expected behaviour. It sees the
+  original-language request, the English reference of it, and the response (plus an optional machine
+  translation of the response).
+- **Output parsing is strict**: one JSON object (bare, fenced, or the single object embedded in prose),
+  validated by pydantic. Invalid output triggers up to `max_retries` retries that show the model its own
+  bad reply and a reminder. No label is ever regex-guessed. After the last retry the failure is recorded
+  explicitly and cached.
+- **Ensemble rule (needs your sign-off):** a label needs a strict majority of the graders that produced
+  valid output. A failed grader abstains. With two graders any disagreement becomes `UNCLEAR` with
+  `disagreement: true`, so those samples are the first to send to human review. This drops informative
+  samples from rates; M6 will report with and without them. If all graders fail: `UNCLEAR`,
+  `label_source: all_graders_failed`.
+- **Empty responses** get `UNCLEAR` with `label_source: rule:empty` and no grader call.
+- **Different grader and subject models** is enforced (`allow_self_grading` to override). Graders run one
+  model at a time. Hosted graders need `allow_hosted`.
+- **Cache** (SQLite, `results/grade_cache.sqlite`) is keyed by grader model, rubric version, system prompt,
+  the full grader prompt and max_tokens. A rerun makes no grader calls, and `grades.jsonl` is
+  byte-identical (timestamps live only in `grading_meta.json`).
+- **Response language** is a script-and-marker heuristic (no dependency). It is wrong sometimes: Devanagari
+  hi/mr is split by marker words, and short Roman-script replies can be misjudged. The graders' own
+  `response_language` is stored next to it. `answered_in_prompt_language` uses the heuristic.
+- **Refusal-phrase lexicon** (en, hi, hi-Latn, ta, bn, mr, te) is AI-written, unreviewed, and only a
+  cross-check feature (`lexicon_refusal`); it never sets the label.
+- **Translation** (IndicTrans2) is optional, off by default, and recorded per sample (`translated`).
+  It does not handle Roman-script Hindi, so `hi-Latn` responses are never translated. It needs
+  `trust_remote_code` (the model repo's code runs on your machine) and extra installs. **Not tested** here:
+  only a fake translator is exercised.
+- **Not in M4:** correct/incorrect scoring (strict vs lenient PARTIAL policy) and parquet tables, both M6.
+- Local graders are weak in Indic languages. Their error per language is exactly what M5's human
+  validation measures; no headline number should be reported before that.
+- Grader model ids in `configs/graders/local_pair.example.yaml` are unverified guesses.
