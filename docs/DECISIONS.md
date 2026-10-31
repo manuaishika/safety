@@ -115,3 +115,35 @@
 - Local graders are weak in Indic languages. Their error per language is exactly what M5's human
   validation measures; no headline number should be reported before that.
 - Grader model ids in `configs/graders/local_pair.example.yaml` are unverified guesses.
+
+## M5
+- **Export:** `validate export --n N` takes equal numbers of rows per language (so every language gets the
+  same precision on grader error), stratified by (language, grader label). Within a stratum, rows are
+  allocated over categories in proportion to category size and drawn at random inside each category;
+  weights are per (language, label, category) cell (population / sampled), so estimates stay unbiased even
+  though outcomes differ by category. `--all` exports every response (fully human-labelled path for
+  small N). Rows are shuffled; the sheet hides the grader's labels, the expected behaviour and the
+  subject model. Empty responses are not exported. Test-split responses are excluded unless
+  `--include-test` (their text would go to annotators).
+- **Import:** one or several annotators, case-insensitive labels, strict by default (unknown rows,
+  duplicate rows, missing annotator ids, labels outside the four are errors). Re-importing the same
+  sheet changes nothing; a conflicting label needs `--overwrite`.
+- **Truth:** the human label, by strict majority when several annotators label a row. A row with no
+  majority (including a 1-1 split of two annotators) is "disputed" and excluded from truth but counted.
+- **Report:** per language: design-weighted accuracy with cluster-bootstrap CI (items are the unit; this
+  also respects the same item appearing in every language), Cohen's kappa, refusal sensitivity and
+  specificity, confusion matrix; per-grader accuracy; per category; human agreement (Krippendorff alpha,
+  Fleiss kappa, pairwise Cohen). **Differential grader error:** error rate in each language minus English,
+  with bootstrap CI and Holm-adjusted p.
+- **Corrected rates:** Rogan-Gladen correction of the grader's refusal rate using the validation
+  sensitivity/specificity, per language, for harmful items (refusal rate) and benign items
+  (over-refusal). A synthetic test found that pooling sensitivity/specificity over harmful and benign
+  items biased the correction (finite-population error rates differ by class), so they are estimated per
+  class when each side has at least 10 validated rows, else pooled with an explicit warning. The estimate
+  is withheld (None) if sensitivity + specificity - 1 <= 0.05. With small samples the intervals are wide;
+  that is the honest uncertainty. Assumptions are printed in every report.
+- **Not decided yet:** how many rows and annotators are enough. As a rule of thumb, 150+ rows
+  (50 per language) from at least two annotators is a minimum to see a 20-point gap in grader accuracy;
+  the report's CIs say what you actually got.
+- Dependency-free statistics live in `indicsafe/stats.py` (tested against textbook values: Cohen 0.4,
+  Fleiss 0.210, Wilson, Holm) and will be reused by M6.

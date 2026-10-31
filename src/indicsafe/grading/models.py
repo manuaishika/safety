@@ -85,6 +85,7 @@ class FinalGrade(BaseModel):
     sample_id: str
     epoch: int
     item_id: str
+    category: str
     language: str
     variant: str
     condition: str
