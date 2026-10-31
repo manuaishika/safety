@@ -6,8 +6,13 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "inspect-ai>=0.3.286",
+    "matplotlib>=3.11.2",
+    "pandas>=3.1.0",
+    "pyarrow>=26.0.0",
     "pydantic>=2.6",
     "pyyaml>=6.0",
+    "scipy>=1.17.1",
+    "statsmodels>=0.15.0",
     "typer>=0.12",
 ]
 
@@ -27,6 +32,8 @@ dev = [
     "mypy>=1.10",
     "pre-commit>=3.7",
     "types-PyYAML",
+    "pandas-stubs>=3.1.0.261029",
+    "scipy-stubs>=1.17.1.5",
 ]
 
 [build-system]
@@ -46,6 +53,7 @@ select = ["E", "F", "I", "B", "UP", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/indicsafe/validation/report.py" = ["E501"]  # markdown table rendering
+"src/indicsafe/analysis/report.py" = ["E501"]  # markdown report rendering
 
 [tool.mypy]
 strict = true
@@ -53,7 +61,7 @@ files = ["src/indicsafe"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["torch", "transformers", "IndicTransToolkit", "IndicTransToolkit.*"]
+module = ["torch", "transformers", "IndicTransToolkit", "IndicTransToolkit.*", "statsmodels", "statsmodels.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

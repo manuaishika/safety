@@ -105,3 +105,6 @@ class FinalGrade(BaseModel):
     translated: bool
     rubric_version: str
     grader_config: str
+    dataset_hash: str
+    review_status: str
+    provenance: str

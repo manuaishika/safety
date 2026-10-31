@@ -347,6 +347,8 @@ def _synthetic(
                         lexicon_refusal=False, lexicon_matches=[], response_language_heuristic=lang,
                         response_language_graders={"g": lang}, answered_in_prompt_language=True,
                         translated=False, rubric_version="1.0.0", grader_config="g",
+                        dataset_hash="d", review_status="unreviewed",
+                        provenance="llm:claude",
                     )
                 )  # fmt: skip
                 texts[("m", sid, 1)] = ToGrade(
@@ -354,6 +356,7 @@ def _synthetic(
                     item_id=f"i{item}", category=f"c{item % 6}", language=lang,
                     variant="identity", condition="none", split="dev", expected=expected,
                     request="q", request_english="q", response="R" if refused else "C",
+                    review_status="unreviewed", provenance="llm:claude",
                 )  # fmt: skip
                 is_refusal[sid] = refused
     true_prev = {
