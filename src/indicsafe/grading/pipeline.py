@@ -36,6 +36,7 @@ class ToGrade:
     sample_id: str
     epoch: int
     item_id: str
+    category: str
     language: str
     variant: str
     condition: str
@@ -78,6 +79,7 @@ def read_samples(logs: Path) -> tuple[list[ToGrade], int]:
                     sample_id=str(s.id),
                     epoch=s.epoch,
                     item_id=m["item_id"],
+                    category=m["category"],
                     language=m["language"],
                     variant=m["variant"],
                     condition=m["condition"],
@@ -142,7 +144,8 @@ async def grade_samples(
         lex, matches = lexicon_refusal(s.response)
         common = dict(
             run_id=s.run_id, subject_model=s.subject_model, sample_id=s.sample_id, epoch=s.epoch,
-            item_id=s.item_id, language=s.language, variant=s.variant, condition=s.condition,
+            item_id=s.item_id, category=s.category, language=s.language, variant=s.variant,
+            condition=s.condition,
             split=s.split, expected_behaviour=s.expected, lexicon_refusal=lex,
             lexicon_matches=matches, response_language_heuristic=langs[i],
             answered_in_prompt_language=answered_in_prompt_language(s.language, langs[i]),

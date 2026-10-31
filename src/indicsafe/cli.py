@@ -26,11 +26,12 @@ from indicsafe.data.builder import (
     make_manifest,
     write_built,
 )
+from indicsafe.data.hashing import sha256_hex
 from indicsafe.data.loaders import LoadError, load_items
 from indicsafe.data.splits import FreezeLock
 from indicsafe.data.validate import DatasetInvalid, check_items
 from indicsafe.grading.cache import GradeCache
-from indicsafe.grading.models import load_grader_config
+from indicsafe.grading.models import FinalGrade, load_grader_config
 from indicsafe.grading.pipeline import (
     GradingError,
     grade_samples,
@@ -42,11 +43,18 @@ from indicsafe.grading.rubric import load_rubric
 from indicsafe.grading.translate import IndicTrans2Translator
 from indicsafe.runner import bench_prompts, describe, execute, prepare_run
 from indicsafe.schema import Item
+from indicsafe.validation.export import build_export, write_export
+from indicsafe.validation.importer import ImportError_, load_annotations, merge_and_save, read_sheet
+from indicsafe.validation.models import Annotation, ExportKey
+from indicsafe.validation.report import build_report, render_markdown
 from indicsafe.variants import get_variant, variant_names
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 data_app = typer.Typer(no_args_is_help=True, help="Dataset commands.")
 app.add_typer(data_app, name="data")
+
+validate_app = typer.Typer(no_args_is_help=True, help="Human validation of grader labels.")
+app.add_typer(validate_app, name="validate")
 
 ConfigOpt = Annotated[Path, typer.Option("--config", help="Run config YAML.")]
 BenchPath = Annotated[Path, typer.Option("--bench-file", help="Bench results JSON.")]
@@ -161,6 +169,101 @@ def unfreeze(
     except (RuntimeError, ValueError) as e:
         raise _fail(str(e)) from e
     typer.echo("lock re-baselined and logged")
+
+
+ExportDir = Annotated[Path, typer.Option("--export", help="Validation export folder.")]
+
+
+@validate_app.command("export")
+def validate_export(
+    grades: Annotated[Path, typer.Option("--grades", help="Grades folder (has grades.jsonl).")],
+    n: Annotated[int | None, typer.Option(help="Rows to sample (equal per language).")] = None,
+    all_rows: Annotated[bool, typer.Option("--all", help="Export every response.")] = False,
+    seed: Annotated[int, typer.Option(help="Sampling seed.")] = 0,
+    include_test: Annotated[
+        bool, typer.Option(help="Include test-split responses (their text goes to annotators).")
+    ] = False,
+    out: Annotated[Path | None, typer.Option(help="Output folder.")] = None,
+) -> None:
+    """Write an annotator sheet (grader labels hidden) and a private key."""
+    if (n is None) == (not all_rows):
+        raise _fail("give exactly one of --n N or --all")
+    gfile = grades / "grades.jsonl"
+    if not gfile.exists():
+        raise _fail(f"{gfile} not found; run `indicsafe grade` first")
+    try:
+        graded = [
+            FinalGrade.model_validate_json(line)
+            for line in gfile.read_text(encoding="utf-8").splitlines()
+            if line
+        ]
+        meta = json.loads((grades / "grading_meta.json").read_text(encoding="utf-8"))
+        run_dir = grades.parent.parent.parent
+        samples, _ = read_samples(run_dir)
+        texts = {(s.subject_model, s.sample_id, s.epoch): s for s in samples}
+        key, sheet = build_export(
+            graded, texts, n=None if all_rows else n, seed=seed, include_test=include_test,
+            grades_dir=str(grades), grades_sha256=sha256_hex(gfile.read_text(encoding="utf-8")),
+            rubric_version=meta["rubric_version"], grader_config=meta["grader_config"]["name"],
+        )  # fmt: skip
+    except (GradingError, ValueError, KeyError) as e:
+        raise _fail(str(e)) from e
+    dest = out or Path("results/validation") / key.export_id
+    write_export(dest, key, sheet)
+    typer.echo(f"exported {len(key.rows)} rows ({key.mode}) -> {dest}")
+    for w in key.warnings:
+        typer.echo(f"warning: {w}", err=True)
+    typer.echo("Give annotators ONLY annotator_sheet.csv and ANNOTATOR_GUIDE.md.")
+
+
+@validate_app.command("import")
+def validate_import(
+    export: ExportDir,
+    sheet: Annotated[list[Path], typer.Option("--sheet", help="Filled sheet(s); repeatable.")],
+    annotator: Annotated[
+        str | None, typer.Option(help="Annotator id for sheets without an annotator_id column.")
+    ] = None,
+    allow_incomplete: Annotated[bool, typer.Option(help="Skip unlabelled rows.")] = False,
+    overwrite: Annotated[bool, typer.Option(help="Replace conflicting earlier labels.")] = False,
+) -> None:
+    """Add annotations from one or more filled sheets (several annotators supported)."""
+    try:
+        key = ExportKey.model_validate_json((export / "key.json").read_text(encoding="utf-8"))
+        new: list[Annotation] = []
+        for s in sheet:
+            new += read_sheet(s, key, annotator, allow_incomplete)
+        merged, added, changed = merge_and_save(export, new, overwrite)
+    except (ImportError_, ValueError, OSError) as e:
+        raise _fail(str(e)) from e
+    who = sorted({a.annotator_id for a in merged})
+    typer.echo(f"{added} new, {changed} replaced; {len(merged)} annotations by {who}")
+
+
+@validate_app.command("report")
+def validate_report(
+    export: ExportDir,
+    n_boot: Annotated[int, typer.Option(help="Bootstrap resamples.")] = 2000,
+    seed: Annotated[int, typer.Option(help="Bootstrap seed.")] = 0,
+) -> None:
+    """Grader-vs-human agreement per language, differential error, corrected estimates."""
+    try:
+        key = ExportKey.model_validate_json((export / "key.json").read_text(encoding="utf-8"))
+        annotations = load_annotations(export)
+        gdir = Path(key.grades_dir)
+        gfile = gdir / "grades.jsonl"
+        text = gfile.read_text(encoding="utf-8")
+        if sha256_hex(text) != key.grades_sha256:
+            raise ValueError(f"{gfile} changed since the export was made; re-export")
+        population = [FinalGrade.model_validate_json(x) for x in text.splitlines() if x]
+        report = build_report(key, annotations, population, n_boot, seed)
+    except (ValueError, OSError) as e:
+        raise _fail(str(e)) from e
+    (export / "report.json").write_text(
+        json.dumps(report, indent=2, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    md = render_markdown(report)
+    (export / "report.md").write_text(md, encoding="utf-8")
+    typer.echo(md)
 
 
 @app.command("doctor")

@@ -19,6 +19,13 @@ Grade the stored responses with a local grader pair (different models from the o
 
     uv run indicsafe grade --logs results/runs/<run_id> --grader-config configs/graders/local_pair.example.yaml
 
+Check the grader against humans (this is what makes any headline number defensible):
+
+    uv run indicsafe validate export --grades <grades folder> --n 150
+    # annotators fill annotator_sheet.csv, then:
+    uv run indicsafe validate import --export <folder> --sheet filled.csv
+    uv run indicsafe validate report --export <folder>
+
 No GPU: open `notebooks/indicsafe_free_gpu.ipynb` on Kaggle or Colab (runs `scripts/bootstrap_free_gpu.sh`).
 
 ## Data
@@ -26,4 +33,4 @@ No GPU: open `notebooks/indicsafe_free_gpu.ipynb` on Kaggle or Colab (runs `scri
 Every harmful item has a paired benign control. Hinglish is `hi-Latn`. All translations are
 currently AI-written and unreviewed.
 
-Status: M4 (dataset, variants, generation runs, free-GPU bootstrap, local grading). Design notes and decisions: `docs/DECISIONS.md`.
+Status: M5 (dataset, variants, generation, free-GPU bootstrap, local grading, human validation). Design notes and decisions: `docs/DECISIONS.md`.
