@@ -21,7 +21,9 @@ Checks you can run any time:
 What pins a number: the dataset hash, rubric version and grader config (analysis refuses to mix
 them), the seed, and the package versions recorded in `analysis_manifest.json` (`uv.lock` pins
 them). Bootstrap and the Bayesian fit are seeded; figure metadata is stripped; no timestamps are
-written to analysis outputs.
+written to analysis outputs. Which commit produced a result is recorded separately in `provenance.json`
+(git sha and dirty flag); `repro-check` excludes only that file, because it changes whenever the code
+does, while every table, figure and the manifest are compared.
 
 Re-running with different package versions can legitimately change numbers in the last digits or
 change figure bytes. `repro-check` proves reproducibility on one machine and one environment, not

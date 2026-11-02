@@ -29,6 +29,7 @@ from indicsafe.analysis.tidy import (
 from indicsafe.data.builder import git_state
 from indicsafe.data.hashing import sha256_hex
 
+PROVENANCE_FILE = "provenance.json"
 PRIMARY = Policy("strict", "exclude")
 POLICIES = [
     PRIMARY,
@@ -157,13 +158,20 @@ def run_analysis(
         "primary_policy": PRIMARY.name,
         "figures": figures,
         "versions": _versions(),
-        "git_sha": sha,
-        "git_dirty": dirty,
     }
     (out_dir / "analysis_manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+    # Which code produced this is provenance, not a result: it changes whenever the repo does, so
+    # it lives in its own file that reproducibility checks exclude (see PROVENANCE_FILES).
+    (out_dir / PROVENANCE_FILE).write_text(
+        json.dumps({"git_sha": sha, "git_dirty": dirty}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     return AnalysisResult(out_dir, manifest)
 
 
-__all__ = ["POLICIES", "PRIMARY", "TIDY_COLUMNS", "AnalysisResult", "md_table", "run_analysis"]
+__all__ = [
+    "POLICIES", "PRIMARY", "PROVENANCE_FILE", "TIDY_COLUMNS", "AnalysisResult", "md_table",
+    "run_analysis",
+]  # fmt: skip

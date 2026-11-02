@@ -63,6 +63,20 @@ def test_check_reproducible_passes_on_the_real_pipeline(tmp_path: Path) -> None:
     assert problems == [] and n > 20
 
 
+def test_reproducibility_does_not_depend_on_which_commit_runs_the_analysis(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: a commit between two runs once changed analysis_manifest.json."""
+    import indicsafe.analysis.pipeline as pipeline
+
+    states = iter([("a" * 40, True), ("b" * 40, False)])
+    monkeypatch.setattr(pipeline, "git_state", lambda _repo: next(states))
+    n, problems = check_reproducible(
+        [_tiny_grades(tmp_path)], include_unreviewed=True, n_boot=20, bayes=False
+    )
+    assert problems == [] and n > 20
+
+
 def test_check_reproducible_catches_nondeterminism(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

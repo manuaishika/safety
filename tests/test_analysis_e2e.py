@@ -133,8 +133,12 @@ def test_figures_exist_in_both_formats(analysed: Path) -> None:
 
 
 def _digest(root: Path) -> dict[str, str]:
-    return {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in sorted(root.rglob("*")) if p.is_file()}  # fmt: skip
+    """Hashes of every output except provenance.json (which commit made it is not a result)."""
+    return {
+        str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in sorted(root.rglob("*"))
+        if p.is_file() and p.name != "provenance.json"
+    }
 
 
 def test_reanalysis_is_byte_identical(graded: Path, analysed: Path, tmp_path: Path) -> None:
@@ -242,3 +246,10 @@ def test_report_includes_validation_numbers_when_supplied(
         and "No human validation supplied" not in md
     )
     assert (tmp_path / "rep" / "validation_report.json").exists()
+
+
+def test_git_state_is_recorded_as_provenance_not_in_the_manifest(analysed: Path) -> None:
+    prov = json.loads((analysed / "provenance.json").read_text())
+    assert set(prov) == {"git_sha", "git_dirty"}
+    manifest = json.loads((analysed / "analysis_manifest.json").read_text())
+    assert "git_sha" not in manifest and "git_dirty" not in manifest

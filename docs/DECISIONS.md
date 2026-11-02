@@ -202,6 +202,9 @@
 - **`repro-check`** runs the analysis twice from scratch into temporary folders and byte-compares every
   file (tables, parquet, PNG, PDF, manifest). It found nothing in the final code, but it did catch an
   unseeded Bayesian fit while M6 was being built. It proves repeatability on one environment only.
+  The first full-suite run caught a design flaw: the manifest held the git sha and dirty flag, so a commit
+  made between two runs changed the manifest bytes. That state now lives in `provenance.json`, which
+  the check excludes (a regression test flips the git state between the two runs and fails without the fix).
 - **`verify-report`** re-hashes a report folder against its manifest and flags edited, missing and extra
   files, so a hand-edited report cannot pass as generated.
 - **`licenses`** prints each model's and the dataset's licence with a flag for custom or non-commercial

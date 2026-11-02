@@ -7,15 +7,15 @@ import json
 import tempfile
 from pathlib import Path
 
-from indicsafe.analysis.pipeline import run_analysis
+from indicsafe.analysis.pipeline import PROVENANCE_FILE, run_analysis
 
 
-def digest_tree(root: Path) -> dict[str, str]:
-    """sha256 of every file under ``root``, keyed by relative path."""
+def digest_tree(root: Path, ignore: frozenset[str] = frozenset()) -> dict[str, str]:
+    """sha256 of every file under ``root`` (except ``ignore``), keyed by relative path."""
     return {
         str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in sorted(root.rglob("*"))
-        if p.is_file()
+        if p.is_file() and str(p.relative_to(root)) not in ignore
     }
 
 
@@ -35,7 +35,8 @@ def check_reproducible(grades: list[Path], **analysis_kwargs: object) -> tuple[i
         a, b = Path(tmp) / "first", Path(tmp) / "second"
         run_analysis(grades, a, **analysis_kwargs)  # type: ignore[arg-type]
         run_analysis(grades, b, **analysis_kwargs)  # type: ignore[arg-type]
-        da, db = digest_tree(a), digest_tree(b)
+        skip = frozenset({PROVENANCE_FILE})  # which commit produced it is not a result
+        da, db = digest_tree(a, skip), digest_tree(b, skip)
     return len(da), diff_digests(da, db)
 
 
