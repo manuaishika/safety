@@ -10,7 +10,7 @@ from typing import Any
 
 import pandas as pd
 
-from indicsafe.analysis.pipeline import PRIMARY, md_table
+from indicsafe.analysis.pipeline import PRIMARY, PROVENANCE_FILE, md_table
 
 KEYS = ["model", "variant", "condition", "language"]
 
@@ -81,7 +81,7 @@ def build_report(analysis: Path, out: Path, validation: Path | None = None) -> d
         if (out / sub).exists():
             shutil.rmtree(out / sub)
         shutil.copytree(analysis / sub, out / sub)
-    for f in ("tidy.parquet", "tidy.csv", "cells.csv", "analysis_manifest.json"):
+    for f in ("tidy.parquet", "tidy.csv", "cells.csv", "analysis_manifest.json", PROVENANCE_FILE):
         shutil.copy2(analysis / f, out / f)
 
     cells = pd.read_csv(analysis / "cells.csv")

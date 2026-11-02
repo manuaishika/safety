@@ -102,10 +102,10 @@ def gaps(d: pd.DataFrame, baseline: str = "en", n_boot: int = 2000, seed: int = 
         for lang in sorted(set(g["language"]) - {baseline}):
             other = _per_item(g, lang)
             items = sorted(set(base.index) | set(other.index))
-            kb = base["k"].reindex(items, fill_value=0).to_numpy(float)
-            nb = base["n"].reindex(items, fill_value=0).to_numpy(float)
-            kl = other["k"].reindex(items, fill_value=0).to_numpy(float)
-            nl = other["n"].reindex(items, fill_value=0).to_numpy(float)
+            kb = base["k"].astype(float).reindex(items, fill_value=0.0).to_numpy(float)
+            nb = base["n"].astype(float).reindex(items, fill_value=0.0).to_numpy(float)
+            kl = other["k"].astype(float).reindex(items, fill_value=0.0).to_numpy(float)
+            nl = other["n"].astype(float).reindex(items, fill_value=0.0).to_numpy(float)
             row: dict[str, object] = dict(zip(GROUP, key, strict=True))
             row.update(language=lang, baseline=baseline, n_items=len(items),
                        n_used_language=int(nl.sum()), n_used_baseline=int(nb.sum()))  # fmt: skip

@@ -23,11 +23,10 @@ hypothesis. Later milestones add inspect-ai, pandas/pyarrow, scipy/statsmodels, 
 grader only. mockllm tries to download a tiktoken file; use a custom deterministic ModelAPI stub.
 
 ## Milestones
-M1 scaffold/schema/validators/migration (done) | M2 variants | M3 Inspect tasks, configs, RunMeta,
-doctor/bench/planner, checkpointing | M3b first local run + Kaggle/Colab bootstrap | M4 local grading
-stack (rubric, ensemble, lexicon, optional IndicTrans2) | M5 human validation (mandatory ground
-truth) | M6 analysis (cluster bootstrap over item_id, exact McNemar + Holm, mixed model, power,
-figures) | M7 hardening + reproducibility. Each ends with tests + lint + types green and a commit.
+M1 to M7 are built and merged (scaffold, variants, runs/doctor/bench/planner, Colab/Kaggle bootstrap,
+local grading, human validation, analysis, hardening). What is left needs people or hardware: a real
+local-model run, native-speaker review of translations, human labelling of the validation sample, a
+licence for the repo, and the rule for releasing the test split. See `docs/DECISIONS.md`.
 
 ## Conventions
 Decisions and open questions live in `docs/DECISIONS.md`. Commits are authored as the researcher

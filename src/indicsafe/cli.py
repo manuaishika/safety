@@ -31,6 +31,7 @@ from indicsafe.data.builder import (
 )
 from indicsafe.data.hashing import sha256_hex
 from indicsafe.data.loaders import LoadError, load_items
+from indicsafe.data.release import ReleaseError, export_public
 from indicsafe.data.splits import FreezeLock
 from indicsafe.data.validate import DatasetInvalid, check_items
 from indicsafe.grading.cache import GradeCache
@@ -44,6 +45,8 @@ from indicsafe.grading.pipeline import (
 )
 from indicsafe.grading.rubric import load_rubric
 from indicsafe.grading.translate import IndicTrans2Translator
+from indicsafe.licenses import report_rows
+from indicsafe.repro import check_reproducible, verify_report
 from indicsafe.runner import bench_prompts, describe, execute, prepare_run
 from indicsafe.schema import Item
 from indicsafe.validation.export import build_export, write_export
@@ -132,6 +135,32 @@ def list_variants() -> None:
     for name in variant_names():
         v = get_variant(name)
         typer.echo(f"{name}  v{v.version}  [{', '.join(sorted(v.languages))}]  {v.description}")
+
+
+@data_app.command("export-public")
+def export_public_cmd(
+    out: Annotated[Path, typer.Option(help="Output folder.")],
+    include_test: Annotated[
+        bool, typer.Option(help="Also release the frozen test split (needs --reason).")
+    ] = False,
+    reason: Annotated[str, typer.Option(help="Logged reason for releasing the test split.")] = "",
+    items: ItemsDir = Path("data/items"),
+    lock: LockPath = Path("data/test_freeze.json"),
+    release_log: Annotated[Path, typer.Option(help="Where test releases are logged.")] = Path(
+        "data/release_log.jsonl"
+    ),
+) -> None:
+    """Export the items for public release: dev split only unless the test split is released."""
+    loaded = _load(items)
+    try:
+        manifest = export_public(
+            loaded, FreezeLock(lock), out, include_test=include_test, reason=reason,
+            release_log=release_log,
+        )  # fmt: skip
+    except ReleaseError as e:
+        raise _fail(str(e)) from e
+    n, held = manifest["n_items_exported"], manifest["n_items_withheld"]
+    typer.echo(f"exported {n} items ({held} withheld) -> {out}")
 
 
 @data_app.command("stats")
@@ -308,6 +337,68 @@ def report(
         raise _fail(f"{analysis} has no analysis_manifest.json; run `indicsafe analyze` first")
     files = build_analysis_report(analysis, out, validation)
     typer.echo(f"wrote {len(files)} files -> {out}/report.md")
+
+
+@app.command("repro-check")
+def repro_check(
+    grades: Annotated[list[Path], typer.Option("--grades", help="Grades folder(s).")],
+    include_unreviewed: Annotated[bool, typer.Option(help="As for analyze.")] = False,
+    n_boot: Annotated[int, typer.Option(help="Bootstrap resamples.")] = 2000,
+    seed: Annotated[int, typer.Option(help="Seed.")] = 0,
+    bayes: Annotated[bool, typer.Option(help="Include the Bayesian fit.")] = True,
+) -> None:
+    """Run the analysis twice from scratch and require byte-identical output."""
+    try:
+        n, problems = check_reproducible(
+            grades, include_unreviewed=include_unreviewed, n_boot=n_boot, seed=seed, bayes=bayes
+        )
+    except (AnalysisError, ValueError) as e:
+        raise _fail(str(e)) from e
+    if problems:
+        raise _fail("NOT reproducible:\n" + "\n".join(f"  - {p}" for p in problems))
+    typer.echo(f"reproducible: {n} files byte-identical across two independent runs")
+
+
+@app.command("verify-report")
+def verify_report_cmd(
+    report: Annotated[Path, typer.Option(help="Report folder from `indicsafe report`.")],
+) -> None:
+    """Check a report folder against its manifest (nothing edited, missing or added)."""
+    problems = verify_report(report)
+    if problems:
+        raise _fail(
+            "report does not match its manifest:\n" + "\n".join(f"  - {p}" for p in problems)
+        )
+    typer.echo("report matches its manifest")
+
+
+@app.command("licenses")
+def licenses(
+    config: Annotated[Path | None, typer.Option(help="Run config whose models to list.")] = None,
+    grader_config: Annotated[Path | None, typer.Option(help="Grader config to list.")] = None,
+) -> None:
+    """Licences of the models and the dataset, restrictions flagged (registry is unverified)."""
+    ids: list[str] = []
+    try:
+        if config:
+            ids += load_config(config).models
+        if grader_config:
+            ids += load_grader_config(grader_config).graders
+    except (ValidationError, OSError) as e:
+        raise _fail(str(e)) from e
+    typer.echo(
+        "NOTE: this registry is from memory, not fetched. Read each page before relying on it.\n"
+    )
+    for name, info in report_rows(ids, Path.cwd()):
+        if info is None:
+            typer.echo(f"? {name}: unknown licence. Look it up before releasing outputs.")
+            continue
+        mark = "!" if info.flag else " "
+        typer.echo(f"{mark} {name}: {info.license}" + (f"  <{info.url}>" if info.url else ""))
+        if info.flag:
+            typer.echo(f"    flag: {info.flag}")
+        if info.notes:
+            typer.echo(f"    note: {info.notes}")
 
 
 @app.command("doctor")
