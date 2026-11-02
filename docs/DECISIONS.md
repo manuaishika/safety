@@ -197,3 +197,24 @@
   contrast; each figure ships with its CSV table. Light surface only.
 - **Not in M6:** `indicsafe report` does not yet gate publication of test-split results, which needs your
   rule for when the test split is released.
+
+## M7
+- **`repro-check`** runs the analysis twice from scratch into temporary folders and byte-compares every
+  file (tables, parquet, PNG, PDF, manifest). It found nothing in the final code, but it did catch an
+  unseeded Bayesian fit while M6 was being built. It proves repeatability on one environment only.
+- **`verify-report`** re-hashes a report folder against its manifest and flags edited, missing and extra
+  files, so a hand-edited report cannot pass as generated.
+- **`licenses`** prints each model's and the dataset's licence with a flag for custom or non-commercial
+  terms. The registry is written from memory and says so on every run: it points at the page to read, it
+  is not legal advice. Matching ignores the provider prefix (a test caught `ollama/...` being read as the
+  Llama family). The dataset is flagged because the repo has **no LICENSE file yet**: until you add one
+  it is all-rights-reserved, which blocks reuse. That choice is yours.
+- **Gated public export** (`data export-public`): dev items only by default. Releasing the test split needs
+  a frozen test split, `--include-test` and a `--reason`, and each release is logged to
+  `data/release_log.jsonl`. Until the split is frozen the dev/test assignment is provisional.
+- **Hygiene test:** fails if logs, results, built data, SQLite caches, `.env` or key-like strings are
+  tracked in git.
+- **Full-pipeline test** drives run, grade, analyze, report, verify and repro-check through the CLI only.
+- **Left for you** (cannot be done by code): run a real model; have native speakers review the AI-drafted
+  translations and label the validation sample; choose a licence; decide when the test split is released;
+  verify the model tags and licences against their pages.

@@ -31,6 +31,8 @@ Turn graded responses into results (tables, figures, limits):
     uv run indicsafe analyze --grades <grades folder> --out results/analysis/run1
     uv run indicsafe report --analysis results/analysis/run1 --validation <validation folder>
 
+Checks: `indicsafe repro-check --grades <folder>` (analysis twice, byte-identical), `indicsafe verify-report --report <folder>`, `indicsafe licenses --config <run.yaml>`. Exact commands per result: `docs/REPRODUCE.md`.
+
 No GPU: open `notebooks/indicsafe_free_gpu.ipynb` on Kaggle or Colab (runs `scripts/bootstrap_free_gpu.sh`).
 
 ## Data
@@ -38,4 +40,4 @@ No GPU: open `notebooks/indicsafe_free_gpu.ipynb` on Kaggle or Colab (runs `scri
 Every harmful item has a paired benign control. Hinglish is `hi-Latn`. All translations are
 currently AI-written and unreviewed.
 
-Status: M6 (dataset, variants, generation, free-GPU bootstrap, grading, human validation, analysis). Design notes and decisions: `docs/DECISIONS.md`.
+Status: all milestones built (M1 to M7). Still needed from people: a real-model run, native-speaker review and human labelling. Design notes and decisions: `docs/DECISIONS.md`.
